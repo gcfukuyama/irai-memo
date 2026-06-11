@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="依頼受付メモ">
+<meta name="theme-color" content="#1C1F26">
+<title>依頼受付メモ</title>
+<style>
+  :root{
+    --bg:#EDEEEC; --surface:#fff; --ink:#1C1F26; --inkSoft:#5A6072; --inkFaint:#8A8F9C;
+    --line:#E3E4E1; --lineSoft:#EFEFEC; --accent:#E8590C; --accentDeep:#C2410C;
+    --amber:#D97706; --green:#3F7A57; --reqBg:#FFF3EC; --reqInk:#C2410C;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;}
+  body{background:var(--bg);color:var(--ink);padding-bottom:56px;
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",YuGothic,Meiryo,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  .wrap{max-width:600px;margin:0 auto;padding:0 16px;}
+
+  header{padding:24px 0 16px;}
+  .eyebrow{font-size:12px;letter-spacing:.14em;color:var(--accentDeep);font-weight:700;}
+  .eyebrow .arw{color:var(--inkFaint);font-weight:600;}
+  h1{font-size:30px;font-weight:800;margin:6px 0 4px;line-height:1.15;}
+  .lead{font-size:14px;color:var(--inkSoft);line-height:1.6;margin:0;}
+  .hazard{height:6px;border-radius:99px;margin:16px 0 0;
+    background-image:repeating-linear-gradient(45deg,var(--ink) 0 11px,var(--accent) 11px 22px);}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 1px 0 rgba(28,31,38,.03),0 12px 30px -22px rgba(28,31,38,.22);margin-top:22px;}
+  .card-h{padding:16px 18px 4px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+  .card-h .k{font-size:13px;font-weight:800;}
+  .card-h .sub{font-size:11px;color:var(--inkFaint);}
+  .reprow{padding:10px 18px 0;display:flex;align-items:center;gap:8px;}
+  .replbl{font-size:12px;color:var(--inkSoft);font-weight:700;white-space:nowrap;}
+  textarea,input,select{font-family:inherit;color:var(--ink);}
+  .repin{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:16px;background:#FBFBFA;outline:none;}
+  .repin:focus{border-color:var(--accent);background:#fff;}
+  .ta-wrap{margin:8px 14px 0;border:1.5px solid var(--line);border-radius:12px;background:#FBFBFA;transition:border-color .15s,background .15s;}
+  .ta-wrap:focus-within{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(232,89,12,.12);}
+  .ta{width:100%;border:none;outline:none;resize:none;padding:12px 13px;font-size:16px;line-height:1.7;background:transparent;min-height:128px;border-radius:12px;}
+  .ta::placeholder{color:#B6BAC2;}
+  .hint{padding:2px 18px 14px;font-size:12px;color:var(--inkFaint);display:flex;align-items:center;gap:6px;line-height:1.5;}
+  .hint svg{width:15px;height:15px;flex:none;}
+  .act{padding:0 14px 14px;}
+  .btn{width:100%;border:none;border-radius:12px;padding:15px 16px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:disabled{background:#E7C7B6;cursor:not-allowed;}
+
+  /* result slip */
+  .slip-bar{background:var(--ink);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
+  .slip-bar .ti{font-size:15px;font-weight:800;letter-spacing:.04em;}
+  .slip-bar .no{font-size:12px;color:#C9CBD2;}
+  .slip-meta{display:flex;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--lineSoft);
+    font-size:11.5px;color:var(--inkFaint);}
+  .edit-note{padding:11px 18px;font-size:12px;color:var(--accentDeep);background:var(--reqBg);
+    border-bottom:1px solid var(--line);display:flex;gap:7px;align-items:center;line-height:1.5;}
+  .edit-note svg{width:15px;height:15px;flex:none;}
+
+  .field{display:grid;grid-template-columns:84px 1fr;gap:10px;align-items:center;padding:8px 18px;border-bottom:1px solid var(--lineSoft);}
+  .field .k{font-size:12px;color:var(--inkFaint);font-weight:700;}
+  .field input,.field select{width:100%;border:1px solid transparent;border-radius:8px;padding:8px 9px;font-size:15px;
+    font-weight:600;background:#FAFAF8;outline:none;}
+  .field input:focus,.field select:focus{border-color:var(--accent);background:#fff;}
+  .field input.req{background:var(--reqBg);color:var(--reqInk);font-weight:800;}
+
+  .seg{display:flex;gap:6px;}
+  .seg button{flex:1;border:1px solid var(--line);background:#FAFAF8;border-radius:8px;padding:8px 4px;font-size:13px;
+    font-weight:700;color:var(--inkSoft);cursor:pointer;font-family:inherit;}
+  .seg button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .seg button.on.u-high{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .seg button.on.u-mid{background:var(--amber);border-color:var(--amber);color:#fff;}
+  .seg button.on.u-low{background:var(--green);border-color:var(--green);color:#fff;}
+
+  .sec{padding:16px 18px;border-top:8px solid var(--bg);}
+  .sec-h{font-size:13px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .sec-h .mk{width:4px;height:15px;border-radius:2px;background:var(--accent);}
+  .mtable{width:100%;border-collapse:collapse;font-size:13px;}
+  .mtable th{text-align:left;font-size:11px;color:var(--inkFaint);font-weight:700;padding:0 8px 6px 0;border-bottom:1px solid var(--line);}
+  .mtable td{padding:8px 8px 8px 0;border-bottom:1px solid var(--lineSoft);vertical-align:top;line-height:1.5;}
+  .pri{font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap;}
+  .li{display:flex;gap:9px;font-size:14px;line-height:1.65;padding:5px 0;}
+  .li .b{color:var(--accent);font-weight:800;flex:none;}
+  .q{display:flex;gap:9px;font-size:14px;line-height:1.6;padding:7px 0;border-bottom:1px solid var(--lineSoft);}
+  .q:last-child{border-bottom:none;}
+  .q .n{font-size:12px;font-weight:800;color:var(--accentDeep);flex:none;width:18px;}
+  .memo{background:#FBFAF7;border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:14px;line-height:1.7;white-space:pre-wrap;}
+  .ok-note{font-size:13px;line-height:1.7;color:var(--inkSoft);margin:0;}
+  .ok-note b{color:var(--ink);}
+
+  .send{padding:16px 14px 18px;border-top:8px solid var(--bg);display:flex;gap:10px;}
+  .btn-send{flex:1;width:auto;background:var(--ink);color:#fff;}
+  .btn-new{flex:none;width:auto;background:#F1F1EE;color:var(--inkSoft);}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+    padding:11px 18px;border-radius:99px;font-size:13px;font-weight:700;box-shadow:0 10px 30px -8px rgba(0,0,0,.4);
+    z-index:50;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">営業 <span class="arw">→</span> 内部事務</div>
+    <h1>依頼受付メモ</h1>
+    <p class="lead">お客様から聞いた内容を、そのまま事務へ。話した言葉を自動で受付票に整えます。</p>
+    <div class="hazard"></div>
+  </header>
+
+  <!-- 入力 -->
+  <section class="card">
+    <div class="card-h"><span class="k">お客様から聞いた内容</span><span class="sub">↓ ここに入力</span></div>
+    <div class="ta-wrap">
+      <textarea id="input" class="ta" rows="5" placeholder="例）〇〇建設へガードフェンス20台、6月20日納品で受注入力お願いします。急ぎです。"></textarea>
+    </div>
+    <div class="hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E8590C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="11" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0M12 17v4"></path></svg>
+      キーボードのマイクボタンで音声入力できます
+    </div>
+    <div class="reprow">
+      <span class="replbl">営業担当（任意）</span>
+      <input id="rep" class="repin" placeholder="お名前・次回も保存">
+    </div>
+    <div class="act"><button id="go" class="btn btn-primary">整理する</button></div>
+  </section>
+
+  <!-- 結果 -->
+  <section id="slip" class="card hidden">
+    <div class="slip-bar"><span class="ti">依頼受付票</span><span id="slipNo" class="no mono"></span></div>
+    <div class="slip-meta"><span id="slipWhen" class="mono"></span><span>未処理／要・人による確認</span></div>
+    <div class="edit-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>
+      自動で読み取った下書きです。違っていたらタップして直してください。
+    </div>
+
+    <!-- 編集可能フィールド -->
+    <div class="field"><span class="k">依頼種別</span>
+      <select id="f_type">
+        <option>見積</option><option>受注入力</option><option>納期確認</option>
+        <option>在庫確認</option><option>商品確認</option><option>要確認</option>
+      </select></div>
+    <div class="field"><span class="k">お客様名</span><input id="f_customer"></div>
+    <div class="field"><span class="k">商品名</span><input id="f_product"></div>
+    <div class="field"><span class="k">数量</span><input id="f_quantity"></div>
+    <div class="field"><span class="k">希望納期</span><input id="f_dueDate"></div>
+    <div class="field"><span class="k">納品場所</span><input id="f_deliveryPlace"></div>
+    <div class="field"><span class="k">緊急度</span>
+      <div class="seg" id="seg_urgency">
+        <button data-v="高">高</button><button data-v="中">中</button>
+        <button data-v="低">低</button><button data-v="不明">不明</button>
+      </div></div>
+    <div class="field"><span class="k">営業担当</span><input id="f_rep"></div>
+    <div class="field"><span class="k">添付資料</span>
+      <select id="f_attachment"><option>不明</option><option>あり</option><option>なし</option></select></div>
+    <div class="field"><span class="k">備考</span><input id="f_note" placeholder="（任意）"></div>
+
+    <div class="sec"><div class="sec-h"><span class="mk"></span>不足している情報</div><div id="missing"></div></div>
+    <div class="sec"><div class="sec-h"><span class="mk"></span>内部事務が確認すること</div><div id="checks"></div></div>
+    <div class="sec"><div class="sec-h"><span class="mk"></span>営業へ確認したいこと</div><div id="questions"></div></div>
+    <div class="sec"><div class="sec-h"><span class="mk"></span>内部事務向け 処理メモ</div><div id="memo" class="memo"></div></div>
+
+    <div class="send">
+      <button id="copy" class="btn btn-send">コピーして事務へ送る</button>
+      <button id="reset" class="btn btn-new">新規</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var JC = "\\u3007\\u3040-\\u30ff\\u4e00-\\u9faf\\uff10-\\uff19A-Za-z0-9ー";
+var COUNTERS = ["台","本","枚","個","セット","ケース","箱","巻","束","袋","ロール","缶","基","面","脚","m","ｍ","メートル","メーター","kg","キロ","t","トン"];
+var PRODUCTS = ["ガードフェンス","ネットフェンス","メッシュフェンス","カラーコーン","ロードコーン","コーンバー","コーンウェイト","コーンベット",
+  "単管バリケード","A型バリケード","バリケード","単管パイプ","単管","敷鉄板","敷き鉄板","鉄板","工事看板","工事用看板","立看板","立て看板",
+  "安全看板","回転灯","点滅灯","大型土のう","土のう","フェンス","ウェイト","重し","クランプ","ベース","フラットバー","保安灯","矢印板"];
+
+function toHalf(s){
+  return s.replace(/[\uff10-\uff19]/g,function(d){return String.fromCharCode(d.charCodeAt(0)-0xFEE0);}).replace(/，/g,",");
+}
+function classifyType(t){
+  var has=function(){for(var i=0;i<arguments.length;i++){if(t.indexOf(arguments[i])>=0)return true;}return false;};
+  if(has("受注","注文","発注","オーダー","受けました","入力お願い","入力をお願い")) return "受注入力";
+  if(has("見積","お見積","金額","いくら","値段","単価出","単価を出")) return "見積";
+  if(has("納期","いつ入","いつ来","いつ届","入荷","いつ頃")) return "納期確認";
+  if(has("在庫","残り","残って","何台残","何本残","在庫ある","在庫あり")) return "在庫確認";
+  if(has("商品確認","品番","型番","仕様確認")) return "商品確認";
+  if(has("ありますか")) return "在庫確認";
+  return "要確認";
+}
+function classifyUrgency(t){
+  if(/急ぎ(では|じゃ)?(ない|ありません|あり?ません)|急ぎでない/.test(t)) return "低";
+  if(t.indexOf("余裕")>=0||t.indexOf("月内")>=0||t.indexOf("いつでも")>=0||t.indexOf("ゆっくり")>=0||t.indexOf("急いでいません")>=0) return "低";
+  if(["至急","大至急","急ぎ","本日中","今日中","すぐ","即日","急いで","早急"].some(function(k){return t.indexOf(k)>=0;})) return "高";
+  if(["今週中","来週前半","なるべく早","なるはや","早めに","少し急","お早め"].some(function(k){return t.indexOf(k)>=0;})) return "中";
+  return "不明";
+}
+function extractQty(t){
+  var re = new RegExp("(\\d[\\d,]*)\\s*("+COUNTERS.join("|")+")");
+  var m = t.match(re);
+  return m ? m[1].replace(/,/g,"")+m[2] : "";
+}
+function extractDate(t){
+  var m = t.match(/(\d{1,2})月(\d{1,2})日/); if(m) return m[1]+"月"+m[2]+"日";
+  m = t.match(/(\d{1,2})\/(\d{1,2})/); if(m) return m[1]+"月"+m[2]+"日";
+  if(t.indexOf("明後日")>=0) return "明後日";
+  if(t.indexOf("明日")>=0) return "明日";
+  if(t.indexOf("本日")>=0||t.indexOf("今日")>=0) return "本日";
+  var amb=["来週中","来週","再来週","月内","今月中","来月","近いうち","そのうち","なるべく早","お早め"];
+  for(var i=0;i<amb.length;i++){ if(t.indexOf(amb[i])>=0) return "要確認（"+amb[i]+"）"; }
+  return "要確認";
+}
+function extractProduct(t, qty){
+  for(var i=0;i<PRODUCTS.length;i++){ if(t.indexOf(PRODUCTS[i])>=0) return PRODUCTS[i]; }
+  if(qty){
+    var num=(qty.match(/\d[\d,]*/)||[""])[0];
+    var idx=t.indexOf(num);
+    if(idx>0){
+      var pre=t.slice(0,idx);
+      var toks=pre.split(/[\u3007へにをのはがでと、。・\s　]+/).filter(Boolean);
+      var last=toks[toks.length-1];
+      if(last && last.length<=14 && !/建設|工業|商事|興業|産業|工務店|製作所/.test(last)) return last;
+    }
+  }
+  return "要確認";
+}
+function extractCustomer(t){
+  var m=t.match(new RegExp("((?:株式会社|有限会社|合同会社)["+JC+"]{1,12})"));
+  if(m) return m[1];
+  m=t.match(new RegExp("(["+JC+"]{1,10}(?:建設|工業|商事|興業|産業|製作所|電機|建材|工務店|物産|商会|システム|サービス|運輸|電設|工事|鋼業|金属|建工|リース|レンタル|組|社|店))"));
+  if(m) return m[1];
+  m=t.match(new RegExp("(["+JC+"]{2,10})(?:様|御中|向け|宛)"));
+  if(m) return m[1];
+  m=t.match(new RegExp("^(["+JC+"]{2,8})へ"));
+  if(m) return m[1];
+  return "要確認";
+}
+function extractPlace(t){
+  var m=t.match(new RegExp("(["+JC+"]{1,12}現場)"));
+  if(m) return m[1];
+  return "要確認";
+}
+function extractAttachment(t){
+  if(t.indexOf("添付")>=0||t.indexOf("図面あり")>=0) return "あり";
+  return "不明";
+}
+
+var F = {}; // current fields
+var META = {};
+
+function parse(){
+  var raw = $("input").value.trim();
+  var t = toHalf(raw);
+  var qty = extractQty(t);
+  F = {
+    type: classifyType(t),
+    customer: extractCustomer(t),
+    product: extractProduct(t, qty),
+    quantity: qty || "",
+    dueDate: extractDate(t),
+    deliveryPlace: extractPlace(t),
+    urgency: classifyUrgency(t),
+    rep: ($("rep").value||"").trim(),
+    attachment: extractAttachment(t),
+    note: ""
+  };
+}
+
+function isReq(v){ return !v || v==="要確認" || (typeof v==="string" && v.indexOf("要確認")===0); }
+
+function deriveMissing(){
+  var m=[];
+  if(isReq(F.customer)) m.push({item:"お客様名",detail:"正式名称を確認",priority:"高"});
+  if(isReq(F.product)) m.push({item:"商品名／商品コード",detail:"対象商品を確認",priority:"高"});
+  if(!F.quantity) m.push({item:"数量",detail:"数量と単位を確認",priority:"高"});
+  if(isReq(F.dueDate)) m.push({item:"希望納期",detail:"具体的な納期を確認",priority:(F.type==="受注入力"||F.type==="見積")?"高":"中"});
+  if(F.type!=="在庫確認" && F.type!=="商品確認" && isReq(F.deliveryPlace))
+    m.push({item:"納品場所",detail:"納品先を確認",priority:F.type==="受注入力"?"高":"中"});
+  return m;
+}
+function deriveChecks(){
+  var base=["お客様名が正式名称と一致しているか","商品名または商品コードが正しいか","数量と単位が正しいか"];
+  if(F.type==="受注入力") return base.concat(["希望納期に対応可能か（人が確認）","単価・取引条件に問題がないか","納品場所が確定しているか","受注入力してよい条件がそろっているか"]);
+  if(F.type==="見積") return base.concat(["単価・見積条件・取引条件に問題がないか","希望納期の可否（参考確認）"]);
+  if(F.type==="納期確認") return ["商品名・商品コードが正しいか","在庫・入荷予定の最新状況を確認","回答する納期に無理がないか"];
+  if(F.type==="在庫確認") return ["商品名・商品コードが正しいか","在庫数の最新値を確認","引当て済み在庫の有無"];
+  return base;
+}
+function deriveQuestions(){
+  var q=[];
+  if(isReq(F.customer)) q.push("お客様の正式名称を教えてください。");
+  if(isReq(F.product)) q.push("対象の商品名（または商品コード）を教えてください。");
+  if(!F.quantity) q.push("数量と単位を教えてください。");
+  if(isReq(F.dueDate)) q.push("希望納期を具体的に教えてください。");
+  if(F.type!=="在庫確認" && F.type!=="商品確認" && isReq(F.deliveryPlace)) q.push("納品場所を教えてください。");
+  if(F.type==="見積"||F.type==="受注入力") q.push("単価は過去見積と同条件でよいでしょうか。");
+  if(F.attachment==="不明") q.push("注文書や図面など添付資料はありますか。");
+  return q;
+}
+function deriveMemo(){
+  var labelMap={customer:"お客様名",product:"商品名",quantity:"数量",dueDate:"希望納期",deliveryPlace:"納品場所"};
+  var unknown=[];
+  ["customer","product","dueDate","deliveryPlace"].forEach(function(k){ if(isReq(F[k])) unknown.push(labelMap[k]); });
+  if(!F.quantity) unknown.push("数量");
+  var cust=isReq(F.customer)?"お客様（要確認）":F.customer;
+  var prod=isReq(F.product)?"商品（要確認）":F.product;
+  var qty=F.quantity?F.quantity:"";
+  var due=isReq(F.dueDate)?"要確認":F.dueDate;
+  var s=cust+"向けに、"+prod+qty+"の"+F.type+"依頼です。\n";
+  s+="希望納期は"+due+"、緊急度は"+F.urgency+"です。\n";
+  s+=(unknown.length? unknown.join("・")+"が未確認のため、":"")+"営業担当へ確認のうえ処理してください。";
+  return s;
+}
+
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function priStyle(p){
+  if(p==="高") return "background:var(--reqBg);color:var(--reqInk)";
+  if(p==="中") return "background:#FEF3E2;color:var(--amber)";
+  return "background:#EFEFEC;color:var(--inkFaint)";
+}
+
+function renderFields(){
+  $("f_type").value=F.type;
+  ["customer","product","quantity","dueDate","deliveryPlace","rep","note"].forEach(function(k){
+    var el=$("f_"+k); el.value=F[k]||"";
+    if(k!=="rep"&&k!=="note") el.classList.toggle("req", isReq(F[k])||(k==="quantity"&&!F.quantity));
+  });
+  $("f_attachment").value=F.attachment;
+  var seg=$("seg_urgency");
+  Array.prototype.forEach.call(seg.children,function(b){
+    var on=b.getAttribute("data-v")===F.urgency;
+    b.className=on?("on "+({"高":"u-high","中":"u-mid","低":"u-low"}[F.urgency]||"")):"";
+  });
+}
+function renderDerived(){
+  var miss=deriveMissing();
+  if(miss.length){
+    var h='<table class="mtable"><thead><tr><th style="width:32%">不足項目</th><th>確認内容</th><th style="width:46px">優先</th></tr></thead><tbody>';
+    miss.forEach(function(m){ h+='<tr><td style="font-weight:700">'+esc(m.item)+'</td><td style="color:var(--inkSoft)">'+esc(m.detail)+'</td><td><span class="pri" style="'+priStyle(m.priority)+'">'+m.priority+'</span></td></tr>'; });
+    h+='</tbody></table>';
+    $("missing").innerHTML=h;
+  } else {
+    $("missing").innerHTML='<p class="ok-note">現時点で大きな不足情報はありません。<br>ただし処理前に<b>商品コード・単価・取引条件・納期可否</b>は人が確認してください。</p>';
+  }
+  $("checks").innerHTML=deriveChecks().map(function(c){return '<div class="li"><span class="b">✓</span><span>'+esc(c)+'</span></div>';}).join("");
+  $("questions").innerHTML=deriveQuestions().map(function(q,i){return '<div class="q"><span class="n">'+(i+1)+'.</span><span>'+esc(q)+'</span></div>';}).join("");
+  $("memo").textContent=deriveMemo();
+}
+
+function buildText(){
+  var L=[];
+  L.push("【依頼受付票】No."+META.no);
+  L.push("受付日時："+META.when);
+  L.push("──────────────");
+  L.push("依頼種別："+F.type);
+  L.push("お客様名："+(F.customer||"—"));
+  L.push("商品名："+(F.product||"—"));
+  L.push("数量："+(F.quantity||"—"));
+  L.push("希望納期："+(F.dueDate||"—"));
+  L.push("納品場所："+(F.deliveryPlace||"—"));
+  L.push("緊急度："+F.urgency);
+  L.push("営業担当："+(F.rep||"—"));
+  L.push("添付資料："+F.attachment);
+  if(F.note) L.push("備考："+F.note);
+  var miss=deriveMissing();
+  if(miss.length){ L.push("\n■不足情報（要確認）"); miss.forEach(function(m){L.push("・"+m.item+"（"+m.priority+"）："+m.detail);}); }
+  L.push("\n■内部事務 確認事項"); deriveChecks().forEach(function(c){L.push("・"+c);});
+  var qs=deriveQuestions();
+  if(qs.length){ L.push("\n■営業へ確認したいこと"); qs.forEach(function(q,i){L.push((i+1)+". "+q);}); }
+  L.push("\n■処理メモ"); L.push(deriveMemo());
+  return L.join("\n");
+}
+
+function showToast(msg){
+  var el=$("toast"); el.textContent=msg; el.classList.add("show");
+  clearTimeout(showToast._t); showToast._t=setTimeout(function(){el.classList.remove("show");},1900);
+}
+
+/* events */
+$("go").addEventListener("click",function(){
+  if(!$("input").value.trim()){
+    showToast("「お客様から聞いた内容」に入力してください");
+    $("input").focus();
+    return;
+  }
+  parse();
+  var d=new Date(), p=function(n){return (n<10?"0":"")+n;};
+  META={ no:p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes()),
+         when:d.getFullYear()+"/"+p(d.getMonth()+1)+"/"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()) };
+  $("slipNo").textContent="No."+META.no;
+  $("slipWhen").textContent="受付 "+META.when;
+  renderFields(); renderDerived();
+  $("slip").classList.remove("hidden");
+  $("slip").scrollIntoView({behavior:"smooth",block:"start"});
+});
+
+// 編集時に下流を再計算
+["customer","product","quantity","dueDate","deliveryPlace","rep","note"].forEach(function(k){
+  $("f_"+k).addEventListener("input",function(e){
+    F[k]=e.target.value;
+    if(k!=="rep"&&k!=="note") e.target.classList.toggle("req", isReq(F[k])||(k==="quantity"&&!F.quantity));
+    renderDerived();
+  });
+});
+$("f_type").addEventListener("change",function(e){ F.type=e.target.value; renderDerived(); });
+$("f_attachment").addEventListener("change",function(e){ F.attachment=e.target.value; renderDerived(); });
+$("seg_urgency").addEventListener("click",function(e){
+  var b=e.target.closest("button"); if(!b) return;
+  F.urgency=b.getAttribute("data-v"); renderFields(); renderDerived();
+});
+
+$("copy").addEventListener("click",function(){
+  var t=buildText();
+  function ok(){ showToast("コピーしました。事務へ貼り付けて送れます"); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(ok).catch(fallback);
+  } else { fallback(); }
+  function fallback(){
+    var ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand("copy"); ok(); }catch(e){ showToast("コピーできませんでした"); }
+    document.body.removeChild(ta);
+  }
+});
+$("reset").addEventListener("click",function(){
+  $("input").value=""; $("slip").classList.add("hidden");
+  window.scrollTo({top:0,behavior:"smooth"}); $("input").focus();
+});
+
+// 営業担当名を端末に保存（任意）
+try{
+  var saved=localStorage.getItem("rep"); if(saved) $("rep").value=saved;
+  $("rep").addEventListener("input",function(e){ try{localStorage.setItem("rep",e.target.value);}catch(_){} });
+}catch(_){}
+</script>
+</body>
+</html>
