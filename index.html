@@ -102,6 +102,17 @@
     padding:11px 18px;border-radius:99px;font-size:13px;font-weight:700;box-shadow:0 10px 30px -8px rgba(0,0,0,.4);
     z-index:50;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* 明細（複数商品） */
+  .items-field{align-items:start;}
+  .item-head{display:grid;grid-template-columns:1fr 84px 30px;gap:6px;font-size:11px;color:var(--inkFaint);font-weight:700;margin-bottom:5px;padding:0 2px;}
+  .itemrow{display:grid;grid-template-columns:1fr 84px 30px;gap:6px;margin-bottom:6px;align-items:center;}
+  .itemrow input{width:100%;border:1px solid transparent;border-radius:8px;padding:8px 9px;font-size:15px;font-weight:600;background:#FAFAF8;outline:none;}
+  .itemrow input:focus{border-color:var(--accent);background:#fff;}
+  .itemrow input.req{background:var(--reqBg);color:var(--reqInk);font-weight:800;}
+  .itemrow .del{border:none;background:#F1F1EE;color:var(--inkFaint);border-radius:8px;font-size:20px;line-height:1;cursor:pointer;height:35px;font-family:inherit;}
+  .itemrow .del:active{background:#E6E6E2;}
+  .item-add{margin-top:2px;border:1px dashed var(--line);background:#FBFBFA;color:var(--accentDeep);border-radius:8px;padding:9px;font-size:13px;font-weight:700;width:100%;cursor:pointer;font-family:inherit;}
+  .item-add:active{background:#F1F4F1;}
   .hidden{display:none;}
 </style>
 </head>
@@ -149,8 +160,8 @@
         <option>在庫確認</option><option>商品確認</option><option>要確認</option>
       </select></div>
     <div class="field"><span class="k">お客様名</span><input id="f_customer"></div>
-    <div class="field"><span class="k">商品名</span><input id="f_product"></div>
-    <div class="field"><span class="k">数量</span><input id="f_quantity"></div>
+    <div class="field items-field"><span class="k">商品・数量</span>
+      <div id="items"></div></div>
     <div class="field"><span class="k">希望納期</span><input id="f_dueDate"></div>
     <div class="field"><span class="k">納品場所</span><input id="f_deliveryPlace"></div>
     <div class="field"><span class="k">緊急度</span>
@@ -182,9 +193,9 @@
 var $ = function(id){ return document.getElementById(id); };
 var JC = "\\u3007\\u3040-\\u30ff\\u4e00-\\u9faf\\uff10-\\uff19A-Za-z0-9ー";
 var COUNTERS = ["台","本","枚","個","セット","ケース","箱","巻","束","袋","ロール","缶","基","面","脚","m","ｍ","メートル","メーター","kg","キロ","t","トン"];
-var PRODUCTS = ["ガードフェンス","ネットフェンス","メッシュフェンス","カラーコーン","ロードコーン","コーンバー","コーンウェイト","コーンベット",
-  "単管バリケード","A型バリケード","バリケード","単管パイプ","単管","敷鉄板","敷き鉄板","鉄板","工事看板","工事用看板","立看板","立て看板",
-  "安全看板","回転灯","点滅灯","大型土のう","土のう","フェンス","ウェイト","重し","クランプ","ベース","フラットバー","保安灯","矢印板"];
+var PRODUCTS = ["ガードフェンス","フェンスガード","ネットフェンス","メッシュフェンス","万能鋼板","カラーコーン","ロードコーン","ヘビーコーン","スコッチコーン","コーンバー","コーンウェイト","コーンベット","コーンベース",
+  "単管バリケード","A型バリケード","B型バリケード","バリケード","単管パイプ","単管","敷鉄板","敷き鉄板","鉄板","工事看板","工事用看板","スタンド看板","立看板","立て看板","電光掲示板",
+  "安全看板","回転灯","点滅灯","セフティコーン","大型土のう","土のう","フェンス","ウェイト","ヘビーウェイト","重し","クランプ","ベース","フラットバー","保安灯","矢印板","セーフティコーン"];
 
 function toHalf(s){
   return s.replace(/[\uff10-\uff19]/g,function(d){return String.fromCharCode(d.charCodeAt(0)-0xFEE0);}).replace(/，/g,",");
@@ -206,10 +217,48 @@ function classifyUrgency(t){
   if(["今週中","来週前半","なるべく早","なるはや","早めに","少し急","お早め"].some(function(k){return t.indexOf(k)>=0;})) return "中";
   return "不明";
 }
-function extractQty(t){
-  var re = new RegExp("(\\d[\\d,]*)\\s*("+COUNTERS.join("|")+")");
-  var m = t.match(re);
-  return m ? m[1].replace(/,/g,"")+m[2] : "";
+function findInDict(seg){
+  // セグメント内で「数量に最も近い（末尾寄りの）」辞書商品を返す
+  var best="", bestEnd=-1;
+  for(var i=0;i<PRODUCTS.length;i++){
+    var p=PRODUCTS[i], idx=seg.lastIndexOf(p);
+    if(idx>=0){
+      var end=idx+p.length;
+      if(end>bestEnd || (end===bestEnd && p.length>best.length)){ best=p; bestEnd=end; }
+    }
+  }
+  return best;
+}
+function productFromSeg(seg){
+  seg = seg.replace(/[、。，・\s　]+$/,"");
+  var d=findInDict(seg);
+  if(d) return d;
+  // 辞書になければ、助詞・記号で区切った最後の語を商品名とみなす
+  var s=seg.replace(/(から|まで|より|への|にて|向けに|向け|あての|あて|宛て|宛)/g,"\u0001");
+  var toks=s.split(/[\u0001\u3007へにをのはがでと、。，・\s　]+/).filter(Boolean);
+  var last=toks[toks.length-1];
+  if(last && last.length<=14 && !/建設|工業|商事|興業|産業|工務店|製作所|電機|建材|物産|商会|システム|サービス|運輸|電設|鋼業|金属|建工|リース|レンタル/.test(last)) return last;
+  return "要確認";
+}
+function extractItems(t){
+  var re = new RegExp("(\\d[\\d,]*)\\s*("+COUNTERS.join("|")+")","g");
+  var matches=[], m;
+  while((m=re.exec(t))!==null){
+    matches.push({num:m[1].replace(/,/g,""), unit:m[2], start:m.index, end:re.lastIndex});
+  }
+  var items=[];
+  if(matches.length===0){
+    var p=findInDict(t);
+    items.push({product:p||"要確認", quantity:""});
+    return items;
+  }
+  var prevEnd=0;
+  for(var i=0;i<matches.length;i++){
+    var seg=t.slice(prevEnd, matches[i].start);
+    items.push({product:productFromSeg(seg), quantity:matches[i].num+matches[i].unit});
+    prevEnd=matches[i].end;
+  }
+  return items;
 }
 function extractDate(t){
   var m = t.match(/(\d{1,2})月(\d{1,2})日/); if(m) return m[1]+"月"+m[2]+"日";
@@ -219,20 +268,6 @@ function extractDate(t){
   if(t.indexOf("本日")>=0||t.indexOf("今日")>=0) return "本日";
   var amb=["来週中","来週","再来週","月内","今月中","来月","近いうち","そのうち","なるべく早","お早め"];
   for(var i=0;i<amb.length;i++){ if(t.indexOf(amb[i])>=0) return "要確認（"+amb[i]+"）"; }
-  return "要確認";
-}
-function extractProduct(t, qty){
-  for(var i=0;i<PRODUCTS.length;i++){ if(t.indexOf(PRODUCTS[i])>=0) return PRODUCTS[i]; }
-  if(qty){
-    var num=(qty.match(/\d[\d,]*/)||[""])[0];
-    var idx=t.indexOf(num);
-    if(idx>0){
-      var pre=t.slice(0,idx);
-      var toks=pre.split(/[\u3007へにをのはがでと、。・\s　]+/).filter(Boolean);
-      var last=toks[toks.length-1];
-      if(last && last.length<=14 && !/建設|工業|商事|興業|産業|工務店|製作所/.test(last)) return last;
-    }
-  }
   return "要確認";
 }
 function extractCustomer(t){
@@ -262,12 +297,10 @@ var META = {};
 function parse(){
   var raw = $("input").value.trim();
   var t = toHalf(raw);
-  var qty = extractQty(t);
   F = {
     type: classifyType(t),
     customer: extractCustomer(t),
-    product: extractProduct(t, qty),
-    quantity: qty || "",
+    items: extractItems(t),
     dueDate: extractDate(t),
     deliveryPlace: extractPlace(t),
     urgency: classifyUrgency(t),
@@ -279,11 +312,21 @@ function parse(){
 
 function isReq(v){ return !v || v==="要確認" || (typeof v==="string" && v.indexOf("要確認")===0); }
 
+function anyProductMissing(){ return !F.items || F.items.length===0 || F.items.some(function(it){return isReq(it.product);}); }
+function anyQtyMissing(){ return !F.items || F.items.length===0 || F.items.some(function(it){return !it.quantity;}); }
+function itemsPhrase(){
+  if(!F.items||!F.items.length) return "商品（要確認）";
+  return F.items.map(function(it){
+    var p=isReq(it.product)?"商品（要確認）":it.product;
+    return p+(it.quantity?it.quantity:"（数量要確認）");
+  }).join("・");
+}
+
 function deriveMissing(){
   var m=[];
   if(isReq(F.customer)) m.push({item:"お客様名",detail:"正式名称を確認",priority:"高"});
-  if(isReq(F.product)) m.push({item:"商品名／商品コード",detail:"対象商品を確認",priority:"高"});
-  if(!F.quantity) m.push({item:"数量",detail:"数量と単位を確認",priority:"高"});
+  if(anyProductMissing()) m.push({item:"商品名／商品コード",detail:"対象商品を確認",priority:"高"});
+  if(anyQtyMissing()) m.push({item:"数量",detail:"各商品の数量と単位を確認",priority:"高"});
   if(isReq(F.dueDate)) m.push({item:"希望納期",detail:"具体的な納期を確認",priority:(F.type==="受注入力"||F.type==="見積")?"高":"中"});
   if(F.type!=="在庫確認" && F.type!=="商品確認" && isReq(F.deliveryPlace))
     m.push({item:"納品場所",detail:"納品先を確認",priority:F.type==="受注入力"?"高":"中"});
@@ -300,8 +343,8 @@ function deriveChecks(){
 function deriveQuestions(){
   var q=[];
   if(isReq(F.customer)) q.push("お客様の正式名称を教えてください。");
-  if(isReq(F.product)) q.push("対象の商品名（または商品コード）を教えてください。");
-  if(!F.quantity) q.push("数量と単位を教えてください。");
+  if(anyProductMissing()) q.push("対象の商品名（または商品コード）を教えてください。");
+  if(anyQtyMissing()) q.push("各商品の数量と単位を教えてください。");
   if(isReq(F.dueDate)) q.push("希望納期を具体的に教えてください。");
   if(F.type!=="在庫確認" && F.type!=="商品確認" && isReq(F.deliveryPlace)) q.push("納品場所を教えてください。");
   if(F.type==="見積"||F.type==="受注入力") q.push("単価は過去見積と同条件でよいでしょうか。");
@@ -309,33 +352,54 @@ function deriveQuestions(){
   return q;
 }
 function deriveMemo(){
-  var labelMap={customer:"お客様名",product:"商品名",quantity:"数量",dueDate:"希望納期",deliveryPlace:"納品場所"};
   var unknown=[];
-  ["customer","product","dueDate","deliveryPlace"].forEach(function(k){ if(isReq(F[k])) unknown.push(labelMap[k]); });
-  if(!F.quantity) unknown.push("数量");
+  if(isReq(F.customer)) unknown.push("お客様名");
+  if(anyProductMissing()) unknown.push("商品名");
+  if(anyQtyMissing()) unknown.push("数量");
+  if(isReq(F.dueDate)) unknown.push("希望納期");
+  if(F.type!=="在庫確認" && F.type!=="商品確認" && isReq(F.deliveryPlace)) unknown.push("納品場所");
   var cust=isReq(F.customer)?"お客様（要確認）":F.customer;
-  var prod=isReq(F.product)?"商品（要確認）":F.product;
-  var qty=F.quantity?F.quantity:"";
   var due=isReq(F.dueDate)?"要確認":F.dueDate;
-  var s=cust+"向けに、"+prod+qty+"の"+F.type+"依頼です。\n";
+  var cnt=(F.items&&F.items.length>1)?("（"+F.items.length+"品目）"):"";
+  var s=cust+"向けに、"+itemsPhrase()+cnt+"の"+F.type+"依頼です。\n";
   s+="希望納期は"+due+"、緊急度は"+F.urgency+"です。\n";
   s+=(unknown.length? unknown.join("・")+"が未確認のため、":"")+"営業担当へ確認のうえ処理してください。";
   return s;
 }
 
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escAttr(s){ return esc(s).replace(/"/g,"&quot;"); }
 function priStyle(p){
   if(p==="高") return "background:var(--reqBg);color:var(--reqInk)";
   if(p==="中") return "background:#FEF3E2;color:var(--amber)";
   return "background:#EFEFEC;color:var(--inkFaint)";
 }
 
+function renderItems(){
+  if(!F.items) F.items=[];
+  var box=$("items");
+  var h='';
+  if(F.items.length){
+    h+='<div class="item-head"><span>商品名</span><span>数量</span><span></span></div>';
+  }
+  F.items.forEach(function(it,i){
+    var pr=isReq(it.product), qr=!it.quantity;
+    h+='<div class="itemrow">'+
+       '<input data-i="'+i+'" data-f="product" class="'+(pr?'req':'')+'" value="'+escAttr(it.product||"")+'" placeholder="商品名">'+
+       '<input data-i="'+i+'" data-f="quantity" class="'+(qr?'req':'')+'" value="'+escAttr(it.quantity||"")+'" placeholder="数量">'+
+       '<button class="del" data-i="'+i+'" title="削除">×</button>'+
+       '</div>';
+  });
+  h+='<button class="item-add" id="itemAdd">＋ 商品を追加</button>';
+  box.innerHTML=h;
+}
 function renderFields(){
   $("f_type").value=F.type;
-  ["customer","product","quantity","dueDate","deliveryPlace","rep","note"].forEach(function(k){
+  ["customer","dueDate","deliveryPlace","rep","note"].forEach(function(k){
     var el=$("f_"+k); el.value=F[k]||"";
-    if(k!=="rep"&&k!=="note") el.classList.toggle("req", isReq(F[k])||(k==="quantity"&&!F.quantity));
+    if(k!=="rep"&&k!=="note") el.classList.toggle("req", isReq(F[k]));
   });
+  renderItems();
   $("f_attachment").value=F.attachment;
   var seg=$("seg_urgency");
   Array.prototype.forEach.call(seg.children,function(b){
@@ -365,8 +429,21 @@ function buildText(){
   L.push("──────────────");
   L.push("依頼種別："+F.type);
   L.push("お客様名："+(F.customer||"—"));
-  L.push("商品名："+(F.product||"—"));
-  L.push("数量："+(F.quantity||"—"));
+  if(F.items && F.items.length){
+    if(F.items.length===1){
+      var it0=F.items[0];
+      L.push("商品名："+(it0.product||"—"));
+      L.push("数量："+(it0.quantity||"—"));
+    } else {
+      L.push("商品明細（"+F.items.length+"品目）：");
+      F.items.forEach(function(it,i){
+        L.push("  "+(i+1)+"）"+(it.product||"—")+"　"+(it.quantity||"数量—"));
+      });
+    }
+  } else {
+    L.push("商品名：—");
+    L.push("数量：—");
+  }
   L.push("希望納期："+(F.dueDate||"—"));
   L.push("納品場所："+(F.deliveryPlace||"—"));
   L.push("緊急度："+F.urgency);
@@ -406,12 +483,35 @@ $("go").addEventListener("click",function(){
 });
 
 // 編集時に下流を再計算
-["customer","product","quantity","dueDate","deliveryPlace","rep","note"].forEach(function(k){
+["customer","dueDate","deliveryPlace","rep","note"].forEach(function(k){
   $("f_"+k).addEventListener("input",function(e){
     F[k]=e.target.value;
-    if(k!=="rep"&&k!=="note") e.target.classList.toggle("req", isReq(F[k])||(k==="quantity"&&!F.quantity));
+    if(k!=="rep"&&k!=="note") e.target.classList.toggle("req", isReq(F[k]));
     renderDerived();
   });
+});
+
+// 明細（複数商品）の編集・追加・削除
+$("items").addEventListener("input",function(e){
+  var el=e.target;
+  if(el.tagName!=="INPUT") return;
+  var i=+el.getAttribute("data-i"), f=el.getAttribute("data-f");
+  if(!F.items[i]) return;
+  F.items[i][f]=el.value;
+  if(f==="product") el.classList.toggle("req", isReq(el.value));
+  if(f==="quantity") el.classList.toggle("req", !el.value);
+  renderDerived();
+});
+$("items").addEventListener("click",function(e){
+  var add=e.target.closest("#itemAdd");
+  if(add){ F.items.push({product:"",quantity:""}); renderItems(); renderDerived(); return; }
+  var del=e.target.closest(".del");
+  if(del){
+    var i=+del.getAttribute("data-i");
+    F.items.splice(i,1);
+    if(!F.items.length) F.items.push({product:"",quantity:""});
+    renderItems(); renderDerived();
+  }
 });
 $("f_type").addEventListener("change",function(e){ F.type=e.target.value; renderDerived(); });
 $("f_attachment").addEventListener("change",function(e){ F.attachment=e.target.value; renderDerived(); });
